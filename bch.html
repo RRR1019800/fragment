@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Blue Fragment-Style Store (Demo)</title>
+  <meta name="description" content="A modern blue store inspired by fragment.com — demo with cart and Telegram-style login." />
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: {
+              900: '#0B1220',
+              800: '#0E1A2B'
+            },
+            ocean: {
+              300: '#7FC8FF',
+              400: '#52ABFF',
+              500: '#2E8CFF',
+              600: '#1E74FF',
+              700: '#145DDA'
+            },
+            glass: {
+              100: 'rgba(255,255,255,0.06)',
+              200: 'rgba(255,255,255,0.10)',
+              300: 'rgba(255,255,255,0.16)'
+            }
+          },
+          boxShadow: {
+            glow: '0 10px 30px rgba(30,116,255,0.25)',
+            innerGlow: 'inset 0 0 0 1px rgba(255,255,255,0.08)'
+          },
+          backdropBlur: {
+            xs: '2px'
+          },
+          fontFamily: {
+            inter: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* Subtle animated gradient background */
+    .bg-animated {
+      background: radial-gradient(1200px 600px at 80% -10%, rgba(46,140,255,0.25), transparent 60%),
+                  radial-gradient(900px 500px at -10% 10%, rgba(127,200,255,0.18), transparent 55%),
+                  linear-gradient(180deg, #0B1220 0%, #0E1A2B 100%);
+    }
+    /* Card hover lift */
+    .lift { transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease; }
+    .lift:hover { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(0,0,0,.25), 0 8px 30px rgba(30,116,255,.18); }
+    /* Smooth fades */
+    .fade { transition: opacity .25s ease, visibility .25s ease, transform .25s ease; }
+    /* Glass line separators */
+    .line { background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.02) 40%, rgba(255,255,255,.00)); height:1px; }
+
+    /* Simple ripple for primary buttons */
+    .ripple { position: relative; overflow: hidden; }
+    .ripple:after {
+      content: ""; position: absolute; left: 50%; top: 50%;
+      width: 0; height: 0; background: rgba(255,255,255,.35);
+      transform: translate(-50%, -50%); border-radius: 999px; opacity: 0; pointer-events: none;
+    }
+    .ripple:active:after { width: 220%; height: 220%; opacity: 1; transition: width .4s ease, height .4s ease, opacity .6s ease; }
+
+    /* Badge shimmer */
+    .shimmer {
+      background: linear-gradient(120deg, rgba(255,255,255,.06), rgba(255,255,255,.18), rgba(255,255,255,.06));
+      background-size: 200% 200%;
+      animation: shimmer 2.2s ease-in-out infinite;
+    }
+    /* Avoid focus ring overflow on buttons */
+    .focus-ring:focus-visible { outline: 2px solid #2E8CFF; outline-offset: 2px; border-radius: 14px; }
+  </style>
+</head>
+<body class="font-inter text-white bg-animated min-h-screen">
+  <!-- Top Accent Glow -->
+  <div class="pointer-events-none fixed inset-x-0 -top-40 h-64 blur-3xl opacity-70" aria-hidden="true"
+       style="background: radial-gradient(400px 200px at 30% 30%, rgba(46,140,255,.25), transparent 60%), radial-gradient(400px 200px at 70% 20%, rgba(20,93,218,.25), transparent 60%);">
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-glass-100 border-b border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Brand -->
+        <div class="flex items-center gap-3">
+          <!-- Minimal geometric logo (placeholder for provided link) -->
+          <div class="w-9 h-9 rounded-xl bg-ocean-600 shadow-innerGlow flex items-center justify-center">
+            <!-- Using a simple shard-like F monogram to echo "Fragment" style -->
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 4h14v3H8v3h8v3H8v5H5V4z" fill="url(#gF)"/>
+              <defs>
+                <linearGradient id="gF" x1="5" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#7FC8FF"/>
+                  <stop offset="1" stop-color="#2E8CFF"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div>
+            <div class="text-lg font-semibold tracking-tight">Fragment</div>
+            <div class="text-xs text-white/60 -mt-0.5">Usernames & digital goods (Demo)</div>
+          </div>
+        </div>
+
+        <!-- Search -->
+        <div class="hidden md:flex items-center flex-1 max-w-xl mx-6">
+          <div class="flex items-center gap-2 flex-1 bg-white/5 border border-white/10 rounded-2xl px-3 py-2 shadow-innerGlow">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-white/60">
+              <path d="M21 21l-4.3-4.3m1.6-5.3a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <input id="searchInput" type="text" placeholder="Search handles, domains, or lots..."
+                   class="bg-transparent placeholder-white/40 text-sm w-full focus:outline-none">
+            <button id="clearSearch" class="text-white/50 hover:text-white text-xs px-2 py-1 rounded-lg">Clear</button>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-2">
+          <!-- Demo Login -->
+          <button id="loginBtn" class="ripple focus-ring bg-ocean-600 hover:bg-ocean-700 active:bg-ocean-700 transition-colors text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-glow">
+            Login with Telegram (Demo)
+          </button>
+
+          <!-- Cart button -->
+          <button id="cartBtn" class="relative focus-ring bg-white/5 hover:bg-white/10 transition text-white px-3 py-2 rounded-xl border border-white/10">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="inline">
+              <path d="M6 6h14l-2 9H8L6 6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+              <circle cx="9" cy="20" r="1.6" fill="currentColor"/>
+              <circle cx="17" cy="20" r="1.6" fill="currentColor"/>
+            </svg>
+            <span id="cartCount" class="absolute -top-2 -right-2 text-[11px] font-bold bg-ocean-600 rounded-full px-1.5 py-0.5 shadow-glow">0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
+    <div class="rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-ink-900 to-ink-800 relative">
+      <div class="absolute inset-0 opacity-40" aria-hidden="true"
+           style="background: radial-gradient(800px 400px at 20% 20%, rgba(46,140,255,.35), transparent 60%), radial-gradient(700px 350px at 80% 10%, rgba(127,200,255,.22), transparent 60%);">
+      </div>
+      <div class="relative z-10 p-8 sm:p-12 lg:p-16">
+        <div class="flex flex-col lg:flex-row items-center gap-10">
+          <div class="flex-1">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-white/80 shimmer">
+              Premium • Verified • Instant delivery
+            </div>
+            <h1 class="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight">
+              Discover premium Telegram usernames and digital handles
+            </h1>
+            <p class="mt-3 text-white/70 max-w-2xl">
+              Curated, rare, and clean handles inspired by the polished trading experience of fragment-style markets. Add to cart and preview instantly.
+            </p>
+            <div class="mt-6 flex flex-wrap items-center gap-3">
+              <a href="#catalog" class="ripple focus-ring bg-ocean-600 hover:bg-ocean-700 active:bg-ocean-700 text-white font-semibold px-5 py-3 rounded-2xl shadow-glow">Browse catalog</a>
+              <button id="openFilters" class="bg-white/5 hover:bg-white/10 text-white/90 px-5 py-3 rounded-2xl border border-white/10">Quick filters</button>
+            </div>
+          </div>
+          <!-- Stylized mock card -->
+          <div class="flex-1 w-full">
+            <div class="lift rounded-2xl p-5 bg-white/5 border border-white/10 shadow-innerGlow">
+              <div class="text-white/70 text-sm">Featured lot</div>
+              <div class="mt-2 text-2xl font-bold">@bluewave</div>
+              <div class="mt-2 text-white/70 text-sm">Includes Telegram handle + vanity link</div>
+              <div class="mt-4 line"></div>
+              <div class="mt-4 flex items-center justify-between">
+                <div class="text-white/90 font-semibold">$320</div>
+                <button class="ripple bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-4 py-2 rounded-xl shadow-glow add-btn" data-id="h1">Add to cart</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Filters Bar -->
+  <section id="catalog" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-10">
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-white/5 border border-white/10 rounded-2xl p-3">
+      <div class="flex items-center gap-2">
+        <span class="text-white/70 text-sm">Filter:</span>
+        <button data-filter="all" class="filter-chip active bg-ocean-600/20 text-ocean-300 border-ocean-500/40">All</button>
+        <button data-filter="short" class="filter-chip">Short (3–5)</button>
+        <button data-filter="keyword" class="filter-chip">With keywords</button>
+        <button data-filter="premium" class="filter-chip">Premium</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-white/70 text-sm">Sort:</span>
+        <select id="sortSelect" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm">
+          <option value="popular">Most popular</option>
+          <option value="low">Price: Low to High</option>
+          <option value="high">Price: High to Low</option>
+          <option value="az">A to Z</option>
+          <option value="za">Z to A</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grid -->
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-6">
+    <div id="grid" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <!-- Cards injected by JS -->
+    </div>
+
+  <!-- Empty state -->
+  <div id="emptyState" class="hidden mt-16 text-center">
+    <div class="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8">
+      <div class="text-2xl font-bold">No results</div>
+      <p class="text-white/70 mt-1">Try clearing filters or searching another term.</p>
+      <button id="resetAll" class="mt-4 bg-ocean-600 hover:bg-ocean-700 text-white px-4 py-2 rounded-xl">Reset</button>
+    </div>
+  </div>
+  </section>
+
+  <!-- Cart Drawer -->
+  <aside id="cartDrawer" class="fixed inset-y-0 right-0 w-full sm:max-w-md bg-ink-800 border-l border-white/10 transform translate-x-full fade z-50">
+    <div class="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
+      <div class="text-lg font-semibold">Your Cart</div>
+      <button id="closeCart" class="text-white/70 hover:text-white">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="cartItems" class="p-4 space-y-3 max-h-[60vh] overflow-auto"></div>
+    <div class="mt-2 line"></div>
+    <div class="p-4">
+      <div class="flex items-center justify-between text-white/80">
+        <span>Subtotal</span>
+        <span id="subtotal" class="font-semibold">$0</span>
+      </div>
+      <div class="text-xs text-white/50 mt-1">No taxes or fees in demo</div>
+      <button id="checkoutBtn" class="w-full mt-4 ripple bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-5 py-3 rounded-2xl shadow-glow">Checkout (Demo)</button>
+    </div>
+  </aside>
+
+  <!-- Profile (Demo) Modal -->
+  <div id="profileModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/60"></div>
+    <div class="relative max-w-md mx-auto mt-24 bg-ink-800 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+      <div class="p-4 border-b border-white/10 flex items-center justify-between">
+        <div class="font-semibold">Profile (Demo)</div>
+        <button id="closeProfile" class="text-white/70 hover:text-white">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="p-5">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-ocean-600 flex items-center justify-center text-white font-bold">@</div>
+          <div>
+            <div id="demoUser" class="text-lg font-semibold">@guest</div>
+            <div class="text-white/60 text-sm">Signed in via Telegram (Demo)</div>
+          </div>
+        </div>
+        <div class="mt-5 text-white/70 text-sm">
+          This profile is for demonstration only. Real Telegram login requires a secure backend which is not included here.
+        </div>
+        <div class="mt-5 flex gap-3">
+          <button id="switchUser" class="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-2">Switch demo user</button>
+          <button id="logoutDemo" class="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-2">Sign out (Demo)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-16">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="rounded-3xl border border-white/10 bg-white/5 p-6">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="text-white/60 text-sm">
+            © <span id="year"></span> BlueHandle Store • Demo only
+          </div>
+          <div class="flex items-center gap-3">
+            <a href="#" class="text-white/70 hover:text-white text-sm">Terms</a>
+            <span class="text-white/20">•</span>
+            <a href="#" class="text-white/70 hover:text-white text-sm">Privacy</a>
+            <span class="text-white/20">•</span>
+            <button id="openProfile" class="text-white font-semibold bg-ocean-600 hover:bg-ocean-700 px-4 py-2 rounded-xl">Profile (Demo)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="h-16"></div>
+  </footer>
+
+  <script>
+    // Sample products (small set)
+    const PRODUCTS = [
+      { id: 'h1', handle: '@bluewave', tag: 'premium', price: 320, likes: 92, desc: 'Clean, brandable, ocean vibe' },
+      { id: 'h2', handle: '@sky', tag: 'short', price: 780, likes: 210, desc: 'Ultra-short, rare 3-letter' },
+      { id: 'h3', handle: '@oceanic', tag: 'keyword', price: 190, likes: 54, desc: 'Keyword with strong identity' },
+      { id: 'h4', handle: '@aqua', tag: 'short', price: 520, likes: 160, desc: 'Short and friendly' },
+      { id: 'h5', handle: '@navyblue', tag: 'keyword', price: 140, likes: 33, desc: 'Color keyword, niche' },
+      { id: 'h6', handle: '@tidal', tag: 'premium', price: 260, likes: 76, desc: 'Memorable and energetic' },
+      { id: 'h7', handle: '@deep', tag: 'short', price: 450, likes: 128, desc: 'Short metaphorical' },
+      { id: 'h8', handle: '@blueroom', tag: 'keyword', price: 120, likes: 21, desc: 'Casual and versatile' },
+      { id: 'h9', handle: 'Rich', tag: 'keyword', price: 3456, likes: 63, desc: 'Rich man' },
+    ];
+
+    // State
+    const state = {
+      cart: [],
+      filter: 'all',
+      search: '',
+      sort: 'popular',
+      demoUser: null, // {username: '@name'}
+    };
+
+    // Elements
+    const gridEl = document.getElementById('grid');
+    const emptyEl = document.getElementById('emptyState');
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    const sortSelect = document.getElementById('sortSelect');
+    const cartBtn = document.getElementById('cartBtn');
+    const cartDrawer = document.getElementById('cartDrawer');
+    const closeCart = document.getElementById('closeCart');
+    const cartItems = document.getElementById('cartItems');
+    const subtotal = document.getElementById('subtotal');
+    const cartCount = document.getElementById('cartCount');
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    const resetAll = document.getElementById('resetAll');
+    const openFilters = document.getElementById('openFilters');
+    const loginBtn = document.getElementById('loginBtn');
+    const openProfile = document.getElementById('openProfile');
+    const profileModal = document.getElementById('profileModal');
+    const closeProfile = document.getElementById('closeProfile');
+    const demoUser = document.getElementById('demoUser');
+    const switchUser = document.getElementById('switchUser');
+    const logoutDemo = document.getElementById('logoutDemo');
+
+    // Utility
+    const money = n => '$' + n.toLocaleString();
+
+    // Render products
+    function renderProducts() {
+      let list = [...PRODUCTS];
+
+      // filter
+      if (state.filter !== 'all') list = list.filter(p => p.tag === state.filter);
+
+      // search
+      if (state.search.trim()) {
+        const q = state.search.toLowerCase();
+        list = list.filter(p => p.handle.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
+      }
+
+      // sort
+      switch (state.sort) {
+        case 'low': list.sort((a,b)=>a.price-b.price); break;
+        case 'high': list.sort((a,b)=>b.price-a.price); break;
+        case 'az': list.sort((a,b)=>a.handle.localeCompare(b.handle)); break;
+        case 'za': list.sort((a,b)=>b.handle.localeCompare(a.handle)); break;
+        default: list.sort((a,b)=>b.likes-a.likes); break;
+      }
+
+      gridEl.innerHTML = '';
+      if (list.length === 0) {
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+      emptyEl.classList.add('hidden');
+
+      for (const p of list) {
+        const card = document.createElement('div');
+        card.className = 'lift rounded-2xl overflow-hidden border border-white/10 bg-white/5 shadow-innerGlow';
+        card.innerHTML = `
+          <div class="p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-white/60 text-xs">Telegram handle</div>
+                <div class="mt-0.5 text-xl font-bold">${p.handle}</div>
+              </div>
+              <span class="text-[11px] px-2 py-1 rounded-full bg-ocean-600/15 text-ocean-300 border border-ocean-500/30">${p.tag}</span>
+            </div>
+            <div class="mt-3 text-white/70 text-sm">${p.desc}</div>
+          </div>
+          <div class="line"></div>
+          <div class="p-4 flex items-center justify-between">
+            <div class="text-lg font-semibold">${money(p.price)}</div>
+            <div class="flex items-center gap-2">
+              <div class="text-white/50 text-sm">❤ ${p.likes}</div>
+              <button class="add-btn ripple bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-4 py-2 rounded-xl shadow-glow" data-id="${p.id}">Add</button>
+            </div>
+          </div>
+        `;
+        gridEl.appendChild(card);
+      }
+
+      // bind add buttons
+      document.querySelectorAll('.add-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          addToCart(btn.getAttribute('data-id'));
+        });
+      });
+    }
+
+    // Cart operations
+    function addToCart(id) {
+      const item = PRODUCTS.find(p => p.id === id);
+      if (!item) return;
+      const existing = state.cart.find(i => i.id === id);
+      if (existing) existing.qty += 1;
+      else state.cart.push({ ...item, qty: 1 });
+      updateCart();
+      openCart();
+    }
+
+    function updateCart() {
+      cartItems.innerHTML = '';
+      let total = 0;
+      let count = 0;
+      for (const i of state.cart) {
+        total += i.price * i.qty;
+        count += i.qty;
+
+        const row = document.createElement('div');
+        row.className = 'rounded-xl border border-white/10 bg-white/5 p-3';
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-semibold">${i.handle}</div>
+              <div class="text-white/60 text-sm">${money(i.price)} • ${i.tag}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="qty minus bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2 py-1" data-id="${i.id}">-</button>
+              <div class="w-8 text-center">${i.qty}</div>
+              <button class="qty plus bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2 py-1" data-id="${i.id}">+</button>
+              <button class="remove text-white/60 hover:text-white pl-2" data-id="${i.id}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+        cartItems.appendChild(row);
+      }
+      subtotal.textContent = money(total);
+      cartCount.textContent = count;
+
+      // Bind qty and remove
+      cartItems.querySelectorAll('.qty.minus').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const id = b.getAttribute('data-id');
+          const it = state.cart.find(x=>x.id===id);
+          if (!it) return;
+          it.qty = Math.max(1, it.qty-1);
+          updateCart();
+        });
+      });
+      cartItems.querySelectorAll('.qty.plus').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const id = b.getAttribute('data-id');
+          const it = state.cart.find(x=>x.id===id);
+          if (!it) return;
+          it.qty += 1;
+          updateCart();
+        });
+      });
+      cartItems.querySelectorAll('.remove').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const id = b.getAttribute('data-id');
+          state.cart = state.cart.filter(x=>x.id!==id);
+          updateCart();
+        });
+      });
+    }
+
+    // Drawer controls
+    function openCart() {
+      cartDrawer.style.transform = 'translateX(0)';
+      cartDrawer.style.opacity = '1';
+    }
+    function closeCartDrawer() {
+      cartDrawer.style.transform = 'translateX(100%)';
+      cartDrawer.style.opacity = '0';
+    }
+
+    // Filters
+    function setActiveChip(filter) {
+      document.querySelectorAll('.filter-chip').forEach(c=>{
+        c.className = 'filter-chip';
+      });
+      const btn = document.querySelector(`.filter-chip[data-filter="${filter}"]`);
+      if (btn) btn.className = 'filter-chip active bg-ocean-600/20 text-ocean-300 border-ocean-500/40';
+    }
+
+    // UI init helpers
+    function mountFilterChips() {
+      // style baseline for chips
+      document.querySelectorAll('.filter-chip').forEach(chip=>{
+        chip.classList.add('px-3','py-1.5','rounded-xl','text-sm','border','border-white/10','bg-white/5','hover:bg-white/10','transition');
+        chip.addEventListener('click', ()=>{
+          state.filter = chip.getAttribute('data-filter');
+          setActiveChip(state.filter);
+          renderProducts();
+        });
+      });
+    }
+
+    // Search
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        state.search = e.target.value;
+        renderProducts();
+      });
+    }
+    if (clearSearch) {
+      clearSearch.addEventListener('click', ()=>{
+        state.search = '';
+        if (searchInput) searchInput.value = '';
+        renderProducts();
+      });
+    }
+
+    // Sort
+    sortSelect.addEventListener('change', (e)=>{
+      state.sort = e.target.value;
+      renderProducts();
+    });
+
+    // Filters button
+    openFilters.addEventListener('click', ()=>{
+      // quick cycle through filters for demo
+      const order = ['all','short','keyword','premium'];
+      const idx = order.indexOf(state.filter);
+      const next = order[(idx+1)%order.length];
+      state.filter = next;
+      setActiveChip(next);
+      renderProducts();
+    });
+
+    // Cart events
+    cartBtn.addEventListener('click', openCart);
+    closeCart.addEventListener('click', closeCartDrawer);
+    checkoutBtn.addEventListener('click', ()=>{
+      const total = subtotal.textContent;
+      alert('Checkout (Demo)\n\nNo real purchase is made.\nSubtotal: ' + total);
+    });
+
+    // Login (Demo)
+    loginBtn.addEventListener('click', ()=>{
+      state.demoUser = { username: '@bluebuyer' };
+      demoUser.textContent = state.demoUser.username;
+      openProfileModal();
+    });
+
+    // Profile modal
+    function openProfileModal() {
+      profileModal.classList.remove('hidden');
+    }
+    function closeProfileModal() {
+      profileModal.classList.add('hidden');
+    }
+    openProfile.addEventListener('click', openProfileModal);
+    closeProfile.addEventListener('click', closeProfileModal);
+
+    switchUser.addEventListener('click', ()=>{
+      const samples = ['@bluebuyer','@oceanbuyer','@handlehunter','@navycollector'];
+      const pick = samples[Math.floor(Math.random()*samples.length)];
+      state.demoUser = { username: pick };
+      demoUser.textContent = pick;
+    });
+
+    logoutDemo.addEventListener('click', ()=>{
+      state.demoUser = null;
+      demoUser.textContent = '@guest';
+      closeProfileModal();
+    });
+
+    // Reset
+    resetAll.addEventListener('click', ()=>{
+      state.filter = 'all';
+      state.search = '';
+      state.sort = 'popular';
+      setActiveChip('all');
+      if (searchInput) searchInput.value = '';
+      renderProducts();
+    });
+
+    // Year
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Init
+    mountFilterChips();
+    setActiveChip('all');
+    renderProducts();
+    updateCart();
+
+    // Close cart when clicking outside on large screens
+    document.addEventListener('click', (e)=>{
+      const inside = cartDrawer.contains(e.target) || cartBtn.contains(e.target);
+      if (!inside && window.innerWidth >= 640) {
+        closeCartDrawer();
+      }
+    });
+  </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97171688f2b3577b',t:'MTc1NTU3OTYzNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
